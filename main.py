@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 from mcp.server.fastmcp import FastMCP
+from typing import Optional
 
 # PDF生成ライブラリ
 from reportlab.pdfgen import canvas
@@ -8,6 +9,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont  # ここが重要
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 
 mcp = FastMCP("Japanese Resume Generator")
 
@@ -30,11 +32,16 @@ def generate_resume_pdf(
     licenses: list[str],
     motivation: str,
     output_filename: str = "resume.pdf",
+    photo_path: str | None = None,
 ) -> str:
     """
     日本の履歴書(JIS規格風)のPDFを生成します。2ページ構成。
     学歴・職歴・免許資格を分けて表示します。
     フォントのダウンロードは行わず、PDF標準フォントを使用します。
+
+    Args:
+        photo_path: 証明写真の画像ファイルパス(任意)。指定すると履歴書に写真が挿入されます。
+                   推奨サイズ: 縦40mm x 横30mm
     """
 
     # PDFの設定
@@ -75,10 +82,36 @@ def generate_resume_pdf(
     top_y = 270
 
     # 写真枠
-    draw_rect(155, top_y - 40, 30, 40)
-    # 写真枠内のテキストを中央揃えに調整
-    draw_text(170, top_y - 18, "写真を貼る位置", 8, align="center")
-    draw_text(170, top_y - 23, "(縦40mm 横30mm)", 6, align="center")
+    photo_x = 155
+    photo_y = top_y - 40
+    photo_width = 30
+    photo_height = 40
+
+    draw_rect(photo_x, photo_y, photo_width, photo_height)
+
+    # 写真が指定されている場合は画像を挿入
+    if photo_path and Path(photo_path).exists():
+        try:
+            img = ImageReader(photo_path)
+            # 写真を枠内に収める(少し内側に配置)
+            margin = 1  # mm
+            c.drawImage(  # type: ignore
+                img,
+                (photo_x + margin) * mm,
+                (photo_y + margin) * mm,
+                width=(photo_width - 2 * margin) * mm,
+                height=(photo_height - 2 * margin) * mm,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+        except Exception as e:
+            # 画像読み込みエラーの場合はテキストを表示
+            draw_text(170, top_y - 18, "写真を貼る位置", 8, align="center")
+            draw_text(170, top_y - 26, f"(画像エラー)", 6, align="center")
+    else:
+        # 写真が指定されていない場合はテキストを表示
+        draw_text(170, top_y - 18, "写真を貼る位置", 8, align="center")
+        draw_text(170, top_y - 26, "(縦40mm 横30mm)", 6, align="center")
 
     # 氏名枠
     draw_rect(15, top_y - 25, 130, 25)
