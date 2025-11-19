@@ -57,7 +57,12 @@ Claude Desktop の設定ファイルを開きます:
   "mcpServers": {
     "resume-creator": {
       "command": "uv",
-      "args": ["run", "/path/to/resume-creator/main.py"]
+      "args": [
+        "--directory",
+        "/path/to/resume-creator",
+        "run",
+        "main.py"
+      ]
     }
   }
 }
@@ -66,6 +71,50 @@ Claude Desktop の設定ファイルを開きます:
 #### Claude Desktop の再起動
 
 設定ファイルを保存して Claude Desktop を再起動すると、「resume-creator」ツールが利用可能になります。
+
+### VS Code / Cursor での設定
+
+#### 設定ファイルの編集
+
+VS Code または Cursor で MCP サーバーを使用する場合は、`mcp.json` 設定ファイルを開きます:
+
+**Cursor の場合:**
+- **macOS**: `~/.cursor/mcp.json`
+- **Windows**: `%APPDATA%\Cursor\mcp.json`
+- **Linux**: `~/.config/Cursor/mcp.json`
+
+**VS Code の場合:**
+1. コマンドパレット(command + shift + p)から「MCP: ユーザ構成を開く」
+2. 以下の内容を追加して保存
+
+> **注意**: VS Code の場合は、使用している拡張機能によって設定ファイルの場所が異なる場合があります。MCP 対応の拡張機能のドキュメントを確認してください。
+
+#### MCP サーバーを追加
+
+`mcp.json` ファイルに以下の設定を追加します。`/path/to/resume-creator` は実際のプロジェクトパスに置き換えてください:
+
+```json
+{
+  "mcpServers": {
+    "resume-creator": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/resume-creator",
+        "run",
+        "main.py"
+      ]
+    }
+  }
+}
+```
+
+> **重要**: `type: "stdio"` を指定することで、標準入出力（stdio）経由でMCPサーバーと通信します。これがVSCode/Cursorでの標準的な設定方法です。
+
+#### VS Code / Cursor の再起動
+
+設定ファイルを保存して VS Code または Cursor を再起動すると、「resume-creator」ツールが利用可能になります。
 
 ### API リクエストの例
 
@@ -108,130 +157,3 @@ MCP サーバーは `generate_resume_pdf` というツールを公開してい�
 | `motivation` | string | 志望動機・自己PR | ✓ |
 | `output_filename` | string | 出力ファイル名(デフォルト: resume.pdf) | ✗ |
 
-## VSCode での設定
-
-### 1. VSCode 拡張機能の推奨設定
-
-`.vscode/settings.json` をプロジェクトに作成して、以下を追加します:
-
-```json
-{
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-  "python.linting.enabled": true,
-  "python.linting.pylintEnabled": true,
-  "python.formatting.provider": "black",
-  "[python]": {
-    "editor.formatOnSave": true,
-    "editor.defaultFormatter": "ms-python.python"
-  },
-  "files.exclude": {
-    "**/__pycache__": true,
-    "**/*.pyc": true,
-    "**/*.egg-info": true
-  }
-}
-```
-
-### 2. VSCode でのデバッグ設定
-
-`.vscode/launch.json` を作成してデバッグ設定を追加:
-
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "MCP Server",
-      "type": "python",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": ["main:app", "--reload"],
-      "jinja": true,
-      "justMyCode": true,
-      "console": "integratedTerminal",
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}"
-      }
-    }
-  ]
-}
-```
-
-デバッグを開始: `F5` キーを押すか、実行メニューから「デバッグの開始」を選択
-
-### 3. VSCode で uv の仮想環境を使用
-
-VSCode が `uv` で作成した仮想環境を自動認識するようにするには:
-
-1. VSCode をプロジェクトディレクトリで開く
-2. Python インタープリターを選択: `Cmd + Shift + P` → "Python: Select Interpreter"
-3. `.venv/bin/python` (uv が作成した環境) を選択
-
-## よく使うコマンド
-
-```bash
-# 依存関係を同期（環境構築）
-uv sync
-
-# サーバーを起動
-uv run python main.py
-
-# Python スクリプトを実行
-uv run python <script.py>
-
-# 新しい依存関係を追加
-uv add <package-name>
-
-# 開発用依存関係を追加
-uv add --dev <package-name>
-
-# 依存関係をロック
-uv lock
-
-# 仮想環境のクリア
-uv venv --clear
-```
-
-## トラブルシューティング
-
-### MCP サーバーが起動しない
-
-```bash
-# 依存関係を確認・再構築
-uv sync
-
-# Python バージョン確認
-python --version  # 3.13+ であることを確認
-
-# サーバーを手動実行してエラーを確認
-uv run python main.py
-```
-
-### Claude Desktop でサーバーが認識されない
-
-1. `claude_desktop_config.json` のパスが正しいか確認
-2. `uv run python` コマンドが実行可能か確認:
-   ```bash
-   uv run python --version
-   ```
-3. JSON の文法が正しいか確認（オンライン JSON バリデータで検証）
-4. Claude Desktop を完全に再起動
-
-### PDF 生成エラー
-
-- 日本語文字列が正しくエンコードされているか確認
-- ファイルパスに日本語が含まれていないか確認
-- ReportLab がインストールされているか確認:
-  ```bash
-  uv run python -c "import reportlab; print(reportlab.__version__)"
-  ```
-
-## ライセンス
-
-MIT License
-
-## 参考資料
-
-- [Model Context Protocol (MCP) ドキュメント](https://modelcontextprotocol.io)
-- [uv ドキュメント](https://docs.astral.sh/uv/)
-- [ReportLab ドキュメント](https://www.reportlab.com/docs/reportlab-userguide.pdf)
