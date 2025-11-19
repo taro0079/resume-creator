@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from datetime import datetime
 from mcp.server.fastmcp import FastMCP
@@ -14,7 +13,7 @@ mcp = FastMCP("Japanese Resume Generator")
 
 # --- フォント設定 (ダウンロード不要版) ---
 FONT_NAME = "HeiseiKakuGo-W5"  # PDF標準の日本語ゴシック体
-pdfmetrics.registerFont(UnicodeCIDFont(FONT_NAME))
+pdfmetrics.registerFont(UnicodeCIDFont(FONT_NAME))  # type: ignore
 
 
 @mcp.tool()
@@ -26,12 +25,15 @@ def generate_resume_pdf(
     address: str,
     phone: str,
     email: str,
-    education_work_history: list[str],
+    education_history: list[str],
+    work_history: list[str],
+    licenses: list[str],
     motivation: str,
     output_filename: str = "resume.pdf",
 ) -> str:
     """
-    日本の履歴書(JIS規格風)のPDFを生成します。
+    日本の履歴書(JIS規格風)のPDFを生成します。2ページ構成。
+    学歴・職歴・免許資格を分けて表示します。
     フォントのダウンロードは行わず、PDF標準フォントを使用します。
     """
 
@@ -39,12 +41,19 @@ def generate_resume_pdf(
     c = canvas.Canvas(output_filename, pagesize=A4)
 
     # --- 描画用ヘルパー関数 ---
-    def draw_rect(x, y, w, h):
+    def draw_rect(x: float, y: float, w: float, h: float) -> None:
         c.setLineWidth(1)
         c.rect(x * mm, y * mm, w * mm, h * mm)
 
     # テキスト描画ヘルパー。baseline調整でより正確に配置
-    def draw_text(x, y, text, size=10, align="left", baseline_offset_factor=0.3):
+    def draw_text(
+        x: float,
+        y: float,
+        text: str,
+        size: int = 10,
+        align: str = "left",
+        baseline_offset_factor: float = 0.3,
+    ) -> None:
         c.setFont(FONT_NAME, size)
         # フォントサイズに基づいてベースラインを調整
         # ReportLabのdrawStringは文字列の左下を基準にするため、中央寄せや行内の中央にしたい場合は調整が必要
@@ -99,58 +108,124 @@ def generate_resume_pdf(
     draw_text(85, current_y - 27, "E-mail", 8)  # ラベルは電話データと被らない位置に
     draw_text(105, current_y - 27, email, 10)
 
-    # 2. 学歴・職歴エリア
+    # ========== 1ページ目: 学歴欄 ==========
     history_top_y = current_y - 35
-    draw_text(105, history_top_y + 2, "学歴・職歴", 10, align="center")
+    draw_text(105, history_top_y + 2, "学歴", 10, align="center")
 
     # テーブルヘッダー
     header_y = history_top_y
     row_height = 7
     draw_rect(15, header_y - row_height, 20, row_height)
-    draw_text(25, header_y - 5, "年", 8, align="center")  # 中央寄せ
+    draw_text(25, header_y - 5, "年", 8, align="center")
     draw_rect(35, header_y - row_height, 10, row_height)
-    draw_text(40, header_y - 5, "月", 8, align="center")  # 中央寄せ
+    draw_text(40, header_y - 5, "月", 8, align="center")
     draw_rect(45, header_y - row_height, 140, row_height)
-    draw_text(115, header_y - 5, "学歴・職歴", 8, align="center")  # 中央寄せ
+    draw_text(115, header_y - 5, "学歴", 8, align="center")
 
-    # 履歴の行を描画
+    # 学歴の行を描画
     current_row_y = header_y - row_height
-    max_rows = 18
+    max_education_rows = 10
 
-    for i in range(max_rows):
-        draw_rect(15, current_row_y - row_height, 20, row_height)  # 年
-        draw_rect(35, current_row_y - row_height, 10, row_height)  # 月
-        draw_rect(45, current_row_y - row_height, 140, row_height)  # 内容
+    for i in range(max_education_rows):
+        draw_rect(15, current_row_y - row_height, 20, row_height)
+        draw_rect(35, current_row_y - row_height, 10, row_height)
+        draw_rect(45, current_row_y - row_height, 140, row_height)
 
-        if i < len(education_work_history):
-            content = education_work_history[i]
+        if i < len(education_history):
+            content = education_history[i]
             parts = content.split(" ", 2)
             if len(parts) == 3:
-                draw_text(
-                    25, current_row_y - 5, parts[0], align="center"
-                )  # 年は中央寄せ
-                draw_text(
-                    40, current_row_y - 5, parts[1], align="center"
-                )  # 月は中央寄せ
-                draw_text(48, current_row_y - 5, parts[2])  # 内容は左寄せ
+                draw_text(25, current_row_y - 5, parts[0], align="center")
+                draw_text(40, current_row_y - 5, parts[1], align="center")
+                draw_text(48, current_row_y - 5, parts[2])
             else:
                 draw_text(48, current_row_y - 5, content)
 
         current_row_y -= row_height
 
-    # 3. 志望動機エリア
+    # ========== 1ページ目: 職歴欄 ==========
+    work_top_y = current_row_y - 10
+    draw_text(105, work_top_y + 2, "職歴", 10, align="center")
+
+    # テーブルヘッダー
+    work_header_y = work_top_y
+    draw_rect(15, work_header_y - row_height, 20, row_height)
+    draw_text(25, work_header_y - 5, "年", 8, align="center")
+    draw_rect(35, work_header_y - row_height, 10, row_height)
+    draw_text(40, work_header_y - 5, "月", 8, align="center")
+    draw_rect(45, work_header_y - row_height, 140, row_height)
+    draw_text(115, work_header_y - 5, "職歴", 8, align="center")
+
+    # 職歴の行を描画
+    current_row_y = work_header_y - row_height
+    max_work_rows = 8
+
+    for i in range(max_work_rows):
+        draw_rect(15, current_row_y - row_height, 20, row_height)
+        draw_rect(35, current_row_y - row_height, 10, row_height)
+        draw_rect(45, current_row_y - row_height, 140, row_height)
+
+        if i < len(work_history):
+            content = work_history[i]
+            parts = content.split(" ", 2)
+            if len(parts) == 3:
+                draw_text(25, current_row_y - 5, parts[0], align="center")
+                draw_text(40, current_row_y - 5, parts[1], align="center")
+                draw_text(48, current_row_y - 5, parts[2])
+            else:
+                draw_text(48, current_row_y - 5, content)
+
+        current_row_y -= row_height
+
+    # ========== 2ページ目へ ==========
+    c.showPage()
+
+    # ========== 2ページ目: 免許・資格欄 ==========
+    page2_top_y = 280
+    draw_text(105, page2_top_y, "免許・資格", 10, align="center")
+
+    # テーブルヘッダー
+    license_header_y = page2_top_y - 5
+    draw_rect(15, license_header_y - row_height, 20, row_height)
+    draw_text(25, license_header_y - 5, "年", 8, align="center")
+    draw_rect(35, license_header_y - row_height, 10, row_height)
+    draw_text(40, license_header_y - 5, "月", 8, align="center")
+    draw_rect(45, license_header_y - row_height, 140, row_height)
+    draw_text(115, license_header_y - 5, "免許・資格", 8, align="center")
+
+    # 免許・資格の行を描画
+    current_row_y = license_header_y - row_height
+    max_license_rows = 10
+
+    for i in range(max_license_rows):
+        draw_rect(15, current_row_y - row_height, 20, row_height)
+        draw_rect(35, current_row_y - row_height, 10, row_height)
+        draw_rect(45, current_row_y - row_height, 140, row_height)
+
+        if i < len(licenses):
+            content = licenses[i]
+            parts = content.split(" ", 2)
+            if len(parts) == 3:
+                draw_text(25, current_row_y - 5, parts[0], align="center")
+                draw_text(40, current_row_y - 5, parts[1], align="center")
+                draw_text(48, current_row_y - 5, parts[2])
+            else:
+                draw_text(48, current_row_y - 5, content)
+
+        current_row_y -= row_height
+
+    # ========== 2ページ目: 志望動機エリア ==========
     motivation_y = current_row_y - 10
-    box_height = 35
+    box_height = 80
     draw_rect(15, motivation_y - box_height, 170, box_height)
-    draw_text(18, motivation_y - 5, "志望動機・特技・アピールポイントなど", 8)
+    draw_text(18, motivation_y - 5, "志望動機・自己PR・本人希望記入欄など", 8)
 
     # 志望動機のテキスト折り返し処理
-    # ReportLabのtextobjectの基準座標は行の開始位置、drawStringとは異なる
-    text_obj = c.beginText(18 * mm, (motivation_y - 10 - 0.5) * mm)  # 微調整
+    text_obj = c.beginText(18 * mm, (motivation_y - 10 - 0.5) * mm)
     text_obj.setFont(FONT_NAME, 8)
 
-    char_limit = 50
-    lines = []
+    char_limit = 55
+    lines: list[str] = []
     current_line = ""
     for char in motivation:
         current_line += char
