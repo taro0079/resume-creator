@@ -147,9 +147,9 @@ def generate_resume_pdf(
     # 志望動機のテキスト折り返し処理
     # ReportLabのtextobjectの基準座標は行の開始位置、drawStringとは異なる
     text_obj = c.beginText(18 * mm, (motivation_y - 10 - 0.5) * mm)  # 微調整
-    text_obj.setFont(FONT_NAME, 10)
+    text_obj.setFont(FONT_NAME, 8)
 
-    char_limit = 45
+    char_limit = 50
     lines = []
     current_line = ""
     for char in motivation:
